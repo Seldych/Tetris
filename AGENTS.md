@@ -16,6 +16,7 @@ No specific lint/typecheck/build commands available.
 
 ## State Object: G
 - `G` holds all game state (board, currentPiece, score, level, flags, timers)
+- `G.pieceBag` — 7-bag shuffled array for fair random piece distribution
 - DOM refs are top-level consts (not grouped — single-file pragmatism)
 
 ## Code Conventions
