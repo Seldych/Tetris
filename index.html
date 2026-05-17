@@ -521,7 +521,9 @@
         /** Активна ли анимация вспышки */
         flashActive: false,
         /** Временная метка текущего кадра (обновляется в gameLoop) */
-        frameTimestamp: 0
+        frameTimestamp: 0,
+        /** Текущий мешок 7-bag для случайного выбора фигур */
+        pieceBag: []
     };
 
     // ============================================================
@@ -544,11 +546,28 @@
     }
 
     /**
-     * Возвращает случайный ключ из TETROMINOS.
+     * Перемешивает массив ключей фигур (Fisher-Yates shuffle).
+     * Заполняет G.pieceBag полным набором из 7 фигур.
+     */
+    function shuffleBag() {
+        G.pieceBag = [...TETROMINO_KEYS];
+        for (let i = G.pieceBag.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [G.pieceBag[i], G.pieceBag[j]] = [G.pieceBag[j], G.pieceBag[i]];
+        }
+    }
+
+    /**
+     * Возвращает случайный ключ фигуры из 7-bag.
+     * Когда мешок пуст — создаёт новый перемешанный набор.
+     * Гарантирует равномерное распределение без «засух».
      * @returns {string} Ключ фигуры (I, O, T, S, Z, J, L)
      */
     function getRandomType() {
-        return TETROMINO_KEYS[Math.floor(Math.random() * TETROMINO_KEYS.length)];
+        if (G.pieceBag.length === 0) {
+            shuffleBag();
+        }
+        return G.pieceBag.pop();
     }
 
     /**
