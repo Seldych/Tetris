@@ -11,7 +11,12 @@ No specific lint/typecheck/build commands available.
 - LINES_PER_LEVEL=10
 - LINE_POINTS=[0, 100, 300, 500, 800]
 - FLASH_DURATION=300 (ms)
+- EMPTY=0, EDGE_WIDTH=3
 - Drop interval: max(80, 1000 - (level-1)*80) ms
+
+## State Object: G
+- `G` holds all game state (board, currentPiece, score, level, flags, timers)
+- DOM refs are top-level consts (not grouped — single-file pragmatism)
 
 ## Code Conventions
 - Single HTML file (index.html) with embedded CSS and JS

@@ -3,9 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Классическая игра Тетрис на HTML5 Canvas">
     <title>Тетрис</title>
     <style>
         @import url('https://cdn.jsdelivr.net/npm/fontsource-inter@5.1.0/latin.css');
+
+        :root {
+            --color-primary: #a78bfa;
+            --color-secondary: #818cf8;
+            --color-tertiary: #6366f1;
+            --color-accent-border: rgba(139, 92, 246, 0.4);
+            --color-panel-border: rgba(139, 92, 246, 0.25);
+            --color-btn-border: rgba(139, 92, 246, 0.2);
+            --color-controls-bg: rgba(139, 92, 246, 0.15);
+            --color-overlay-text: rgba(167, 139, 250, 0.7);
+            --color-subtitle: rgba(196, 181, 253, 0.7);
+            --bg-body: #0f0f1a;
+            --bg-panel: rgba(25, 25, 45, 0.85);
+            --bg-canvas: #12121f;
+        }
 
         * {
             margin: 0;
@@ -15,7 +31,7 @@
 
         body {
             font-family: 'Inter', sans-serif;
-            background: #0f0f1a;
+            background: var(--bg-body);
             color: #e0e0e0;
             min-height: 100vh;
             display: flex;
@@ -44,7 +60,7 @@
 
         .game-board {
             position: relative;
-            border: 2px solid rgba(139, 92, 246, 0.4);
+            border: 2px solid var(--color-accent-border);
             border-radius: 8px;
             overflow: hidden;
             box-shadow: 0 0 40px rgba(139, 92, 246, 0.15),
@@ -53,7 +69,7 @@
 
         #tetris-canvas {
             display: block;
-            background: #12121f;
+            background: var(--bg-canvas);
         }
 
         .side-panel {
@@ -64,8 +80,8 @@
         }
 
         .panel-section {
-            background: rgba(25, 25, 45, 0.85);
-            border: 1px solid rgba(139, 92, 246, 0.25);
+            background: var(--bg-panel);
+            border: 1px solid var(--color-panel-border);
             border-radius: 10px;
             padding: 16px;
             backdrop-filter: blur(8px);
@@ -75,7 +91,7 @@
             font-size: 11px;
             text-transform: uppercase;
             letter-spacing: 1.8px;
-            color: rgba(167, 139, 250, 0.7);
+            color: var(--color-overlay-text);
             margin-bottom: 10px;
             font-weight: 600;
         }
@@ -83,20 +99,20 @@
         .score-value {
             font-size: 28px;
             font-weight: 700;
-            color: #a78bfa;
+            color: var(--color-primary);
             font-variant-numeric: tabular-nums;
         }
 
         .level-value {
             font-size: 22px;
             font-weight: 600;
-            color: #818cf8;
+            color: var(--color-secondary);
         }
 
         .lines-value {
             font-size: 20px;
             font-weight: 600;
-            color: #6366f1;
+            color: var(--color-tertiary);
         }
 
         #preview-canvas {
@@ -133,7 +149,7 @@
         .btn-secondary {
             background: rgba(55, 55, 80, 0.6);
             color: #c4b5fd;
-            border: 1px solid rgba(139, 92, 246, 0.2);
+            border: 1px solid var(--color-btn-border);
         }
 
         .btn-secondary:hover {
@@ -163,13 +179,13 @@
 
         .controls-info span {
             display: inline-block;
-            background: rgba(139, 92, 246, 0.15);
-            border: 1px solid rgba(139, 92, 246, 0.2);
+            background: var(--color-controls-bg);
+            border: 1px solid var(--color-btn-border);
             border-radius: 4px;
             padding: 1px 7px;
             font-family: monospace;
             font-size: 11px;
-            color: #a78bfa;
+            color: var(--color-primary);
         }
 
         .game-overlay {
@@ -195,7 +211,7 @@
         .overlay-title {
             font-size: 32px;
             font-weight: 800;
-            background: linear-gradient(135deg, #a78bfa, #818cf8, #6366f1);
+            background: linear-gradient(135deg, var(--color-primary), var(--color-secondary), var(--color-tertiary));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
@@ -203,13 +219,13 @@
 
         .overlay-subtitle {
             font-size: 14px;
-            color: rgba(196, 181, 253, 0.7);
+            color: var(--color-subtitle);
             margin-bottom: 8px;
         }
 
         .overlay-score {
             font-size: 18px;
-            color: #a78bfa;
+            color: var(--color-primary);
             font-weight: 600;
         }
 
@@ -293,6 +309,8 @@
     const LINES_PER_LEVEL = 10;
     const LINE_POINTS = [0, 100, 300, 500, 800];
     const FLASH_DURATION = 300;
+    const EMPTY = 0;
+    const EDGE_WIDTH = 3;
 
     const canvas = document.getElementById('tetris-canvas');
     const ctx = canvas.getContext('2d');
@@ -393,9 +411,6 @@
      * ============================================
      * СОСТОЯНИЕ ИГРЫ
      * ============================================
-     * Единый объект состояния вместо россыпи глобальных переменных.
-     * Позволяет централизованно управлять, сбрасывать и отслеживать
-     * все данные игровой сессии.
      */
     const G = {
         board: [],
@@ -412,20 +427,20 @@
         animationFrameId: null,
         flashRows: [],
         flashTimer: 0,
-        flashActive: false
+        flashActive: false,
+        frameTimestamp: 0
     };
 
     // ============================================================
     // ИНИЦИАЛИЗАЦИЯ И ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
     // ============================================================
 
-    /**
-     * Создаёт пустое двумерное игровое поле.
-     * Использует Array.from с map-функцией вместо вложенных циклов —
-     * короче, декларативнее, без побочных эффектов.
-     */
+    function createEmptyRow() {
+        return new Array(COLS).fill(EMPTY);
+    }
+
     function createBoard() {
-        G.board = Array.from({length: ROWS}, () => new Array(COLS).fill(0));
+        G.board = Array.from({length: ROWS}, createEmptyRow);
     }
 
     function getRandomType() {
@@ -470,7 +485,7 @@
                         return false;
                     }
                     if (newRow < 0) continue;
-                    if (G.board[newRow][newCol] !== 0) {
+                    if (G.board[newRow][newCol] !== EMPTY) {
                         return false;
                     }
                 }
@@ -552,12 +567,6 @@
     // ФИКСАЦИЯ ФИГУРЫ И ОЧИСТКА ЛИНИЙ
     // ============================================================
 
-    /**
-     * Фиксирует текущую фигуру на поле.
-     * Сначала проверяет все ячейки на выход за верхнюю границу (game over),
-     * затем фиксирует. Это исключает частичную фиксацию при game over,
-     * которая могла оставить поле в некорректном состоянии.
-     */
     function lockPiece() {
         const piece = G.currentPiece;
 
@@ -586,15 +595,12 @@
     function checkAndClearLines() {
         const filledRows = [];
         for (let r = ROWS - 1; r >= 0; r--) {
-            let full = true;
-            for (let c = 0; c < COLS; c++) {
-                if (G.board[r][c] === 0) { full = false; break; }
+            if (G.board[r].every(cell => cell !== EMPTY)) {
+                filledRows.push(r);
             }
-            if (full) filledRows.push(r);
         }
 
         if (filledRows.length > 0) {
-            // Сортировка один раз при старте анимации, а не каждый кадр
             filledRows.sort((a, b) => b - a);
             G.flashRows = filledRows;
             G.flashTimer = 0;
@@ -604,40 +610,35 @@
         }
     }
 
-    /**
-     * Обновляет анимацию вспышки перед удалением строк.
-     * Использует реальную дельту времени вместо фиксированного шага 16ms,
-     * что гарантирует корректную скорость анимации независимо от FPS.
-     */
+    function clearFilledRows() {
+        for (const rowIdx of G.flashRows) {
+            G.board.splice(rowIdx, 1);
+            G.board.unshift(createEmptyRow());
+        }
+
+        const count = G.flashRows.length;
+        G.score += (LINE_POINTS[count] || 0) * G.level;
+        G.linesCleared += count;
+
+        const newLevel = Math.floor(G.linesCleared / LINES_PER_LEVEL) + 1;
+        if (newLevel !== G.level) {
+            G.level = newLevel;
+            calculateSpeed();
+        }
+
+        updateDisplay();
+    }
+
     function updateFlashAnimation(timestamp) {
         if (!G.flashActive) return;
 
         if (G.flashTimer === 0) G.flashTimer = timestamp;
 
         if (timestamp - G.flashTimer >= FLASH_DURATION) {
-            for (const rowIdx of G.flashRows) {
-                G.board.splice(rowIdx, 1);
-                const emptyRow = [];
-                for (let c = 0; c < COLS; c++) emptyRow[c] = 0;
-                G.board.unshift(emptyRow);
-            }
-
-            const count = G.flashRows.length;
-            G.score += (LINE_POINTS[count] || 0) * G.level;
-            G.linesCleared += count;
-
-            const newLevel = Math.floor(G.linesCleared / LINES_PER_LEVEL) + 1;
-            if (newLevel !== G.level) {
-                G.level = newLevel;
-                calculateSpeed();
-            }
-
-            updateDisplay();
-
+            clearFilledRows();
             G.flashActive = false;
             G.flashRows = [];
             G.flashTimer = 0;
-
             spawnNextPiece();
         }
     }
@@ -677,12 +678,12 @@
         context.fillRect(bx, by, bw, bh);
 
         context.fillStyle = 'rgba(255, 255, 255, 0.25)';
-        context.fillRect(bx, by, bw, 3);
-        context.fillRect(bx, by, 3, bh);
+        context.fillRect(bx, by, bw, EDGE_WIDTH);
+        context.fillRect(bx, by, EDGE_WIDTH, bh);
 
         context.fillStyle = shadow;
-        context.fillRect(bx, by + bh - 3, bw, 3);
-        context.fillRect(bx + bw - 3, by, 3, bh);
+        context.fillRect(bx, by + bh - EDGE_WIDTH, bw, EDGE_WIDTH);
+        context.fillRect(bx + bw - EDGE_WIDTH, by, EDGE_WIDTH, bh);
     }
 
     function getGhostPosition() {
@@ -694,10 +695,12 @@
         return ghostRow;
     }
 
-    function draw() {
+    function drawBackground() {
         ctx.fillStyle = '#12121f';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
 
+    function drawGrid() {
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
         ctx.lineWidth = 0.5;
         for (let r = 0; r <= ROWS; r++) {
@@ -712,12 +715,14 @@
             ctx.lineTo(c * BLOCK_SIZE, ROWS * BLOCK_SIZE);
             ctx.stroke();
         }
+    }
 
+    function drawBoard() {
         for (let r = 0; r < ROWS; r++) {
             for (let c = 0; c < COLS; c++) {
-                if (G.board[r][c] !== 0) {
+                if (G.board[r][c] !== EMPTY) {
                     if (G.flashActive && G.flashRows.includes(r)) {
-                        const elapsed = G.flashTimer ? frameTimestamp - G.flashTimer : 0;
+                        const elapsed = G.flashTimer ? G.frameTimestamp - G.flashTimer : 0;
                         const flashPhase = Math.floor(elapsed / 50) % 2;
                         if (flashPhase === 0) {
                             ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
@@ -733,43 +738,43 @@
                 }
             }
         }
+    }
 
-        // Призрачная фигура рисуется всегда (даже на позиции текущей фигуры)
-        if (G.currentPiece && !G.flashActive) {
-            const ghostRow = getGhostPosition();
-            if (ghostRow !== null) {
-                for (let r = 0; r < G.currentPiece.shape.length; r++) {
-                    for (let c = 0; c < G.currentPiece.shape[r].length; c++) {
-                        if (G.currentPiece.shape[r][c]) {
-                            const px = (G.currentPiece.col + c) * BLOCK_SIZE;
-                            const py = (ghostRow + r) * BLOCK_SIZE;
-                            drawBlock(ctx, px, py, G.currentPiece.color, G.currentPiece.shadow, BLOCK_SIZE, true);
-                        }
-                    }
-                }
-            }
-        }
-
-        if (G.currentPiece && !G.flashActive) {
-            for (let r = 0; r < G.currentPiece.shape.length; r++) {
-                for (let c = 0; c < G.currentPiece.shape[r].length; c++) {
-                    if (G.currentPiece.shape[r][c]) {
-                        const px = (G.currentPiece.col + c) * BLOCK_SIZE;
-                        const py = (G.currentPiece.row + r) * BLOCK_SIZE;
-                        if (G.currentPiece.row + r >= 0) {
-                            drawBlock(ctx, px, py, G.currentPiece.color, G.currentPiece.shadow, BLOCK_SIZE, false);
-                        }
-                    }
+    function drawGhost() {
+        if (!G.currentPiece || G.flashActive) return;
+        const ghostRow = getGhostPosition();
+        if (ghostRow === null) return;
+        for (let r = 0; r < G.currentPiece.shape.length; r++) {
+            for (let c = 0; c < G.currentPiece.shape[r].length; c++) {
+                if (G.currentPiece.shape[r][c]) {
+                    const px = (G.currentPiece.col + c) * BLOCK_SIZE;
+                    const py = (ghostRow + r) * BLOCK_SIZE;
+                    drawBlock(ctx, px, py, G.currentPiece.color, G.currentPiece.shadow, BLOCK_SIZE, true);
                 }
             }
         }
     }
 
-    /**
-     * Сохраняем timestamp для использования в draw() при расчёте фазы вспышки.
-     * Обновляется каждый кадр в gameLoop перед вызовом draw().
-     */
-    let frameTimestamp = 0;
+    function drawActivePiece() {
+        if (!G.currentPiece || G.flashActive) return;
+        for (let r = 0; r < G.currentPiece.shape.length; r++) {
+            for (let c = 0; c < G.currentPiece.shape[r].length; c++) {
+                if (G.currentPiece.shape[r][c] && G.currentPiece.row + r >= 0) {
+                    const px = (G.currentPiece.col + c) * BLOCK_SIZE;
+                    const py = (G.currentPiece.row + r) * BLOCK_SIZE;
+                    drawBlock(ctx, px, py, G.currentPiece.color, G.currentPiece.shadow, BLOCK_SIZE, false);
+                }
+            }
+        }
+    }
+
+    function draw() {
+        drawBackground();
+        drawGrid();
+        drawBoard();
+        drawGhost();
+        drawActivePiece();
+    }
 
     function drawPreview() {
         previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
@@ -811,7 +816,7 @@
         if (!G.gameRunning) return;
 
         G.animationFrameId = requestAnimationFrame(gameLoop);
-        frameTimestamp = timestamp;
+        G.frameTimestamp = timestamp;
 
         if (G.gamePaused) {
             draw();
@@ -906,8 +911,10 @@
     // ============================================================
 
     document.addEventListener('keydown', function(event) {
-        // Клавиша R / К — быстрый перезапуск (в любом состоянии)
-        if (event.key === 'r' || event.key === 'R' || event.key === 'к' || event.key === 'К') {
+        const key = event.key;
+        const k = key.toLowerCase();
+
+        if (k === 'r' || k === 'к') {
             startGame();
             event.preventDefault();
             return;
@@ -915,7 +922,7 @@
 
         if (!G.gameRunning || G.gameOverState) return;
 
-        if (event.key === 'p' || event.key === 'P' || event.key === 'з' || event.key === 'З') {
+        if (k === 'p' || k === 'з') {
             togglePause();
             event.preventDefault();
             return;
@@ -923,7 +930,7 @@
 
         if (G.gamePaused) return;
 
-        switch (event.key) {
+        switch (key) {
             case 'ArrowLeft':
                 moveLeft();
                 event.preventDefault();
