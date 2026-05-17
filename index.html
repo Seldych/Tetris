@@ -51,6 +51,13 @@
             z-index: 0;
         }
 
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
         .game-wrapper {
             position: relative;
             z-index: 1;
@@ -239,13 +246,6 @@
             font-weight: 600;
         }
 
-        .game-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 20px;
-        }
-
         .promo {
             text-align: center;
             padding: 14px 24px;
@@ -362,20 +362,28 @@
 <script>
     'use strict';
 
-    /**
-     * ============================================
-     * КОНСТАНТЫ И НАСТРОЙКИ ИГРЫ
-     * ============================================
-     */
+    // ============================================================
+    // КОНСТАНТЫ И НАСТРОЙКИ ИГРЫ
+    // ============================================================
+
+    /** Ширина поля в блоках */
     const COLS = 10;
+    /** Высота поля в блоках */
     const ROWS = 20;
+    /** Размер одного блока в пикселях */
     const BLOCK_SIZE = 30;
+    /** Сколько линий нужно очистить для повышения уровня */
     const LINES_PER_LEVEL = 10;
+    /** Очки за 1, 2, 3, 4 одновременно очищенные линии */
     const LINE_POINTS = [0, 100, 300, 500, 800];
+    /** Длительность анимации вспышки в миллисекундах */
     const FLASH_DURATION = 300;
+    /** Значение пустой ячейки на доске */
     const EMPTY = 0;
+    /** Толщина блика и тени на блоке */
     const EDGE_WIDTH = 3;
 
+    // DOM-элементы
     const canvas = document.getElementById('tetris-canvas');
     const ctx = canvas.getContext('2d');
     const previewCanvas = document.getElementById('preview-canvas');
@@ -391,11 +399,15 @@
     const startBtn = document.getElementById('start-btn');
     const pauseBtn = document.getElementById('pause-btn');
 
-    /**
-     * ============================================
-     * ОПРЕДЕЛЕНИЕ ТЕТРОМИНО (ФИГУР)
-     * ============================================
-     */
+    // ============================================================
+    // ОПРЕДЕЛЕНИЕ ТЕТРОМИНО (ФИГУР)
+    // ============================================================
+    //
+    // Каждая фигура хранит:
+    //   color  — основной цвет заливки
+    //   shadow — цвет тени для объёма
+    //   shapes — 4 матрицы поворота (0°, 90°, 180°, 270°)
+
     const TETROMINOS = {
         I: {
             color: '#06b6d4',
@@ -469,29 +481,46 @@
         }
     };
 
+    /** Массив ключей фигур для случайного выбора */
     const TETROMINO_KEYS = Object.keys(TETROMINOS);
 
-    /**
-     * ============================================
-     * СОСТОЯНИЕ ИГРЫ
-     * ============================================
-     */
+    // ============================================================
+    // СОСТОЯНИЕ ИГРЫ
+    // ============================================================
+
+    /** Единый объект игрового состояния */
     const G = {
+        /** Двумерный массив поля (ROWS x COLS) */
         board: [],
+        /** Текущая падающая фигура */
         currentPiece: null,
+        /** Тип следующей фигуры для превью */
         nextPieceType: null,
+        /** Текущий счёт */
         score: 0,
+        /** Текущий уровень (влияет на скорость падения) */
         level: 1,
+        /** Всего очищено линий за игру */
         linesCleared: 0,
+        /** Идёт ли игровая сессия */
         gameRunning: false,
+        /** Активна ли пауза */
         gamePaused: false,
+        /** Завершена ли игра (game over) */
         gameOverState: false,
+        /** Интервал автоматического падения (мс) */
         dropInterval: 1000,
+        /** Временная метка последнего падения */
         lastDropTime: 0,
+        /** ID текущего requestAnimationFrame */
         animationFrameId: null,
+        /** Массив индексов строк, готовых к удалению */
         flashRows: [],
+        /** Время начала анимации вспышки (0 = не стартовала) */
         flashTimer: 0,
+        /** Активна ли анимация вспышки */
         flashActive: false,
+        /** Временная метка текущего кадра (обновляется в gameLoop) */
         frameTimestamp: 0
     };
 
@@ -499,18 +528,34 @@
     // ИНИЦИАЛИЗАЦИЯ И ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
     // ============================================================
 
+    /**
+     * Создаёт пустую строку поля.
+     * @returns {number[]} Массив длины COLS, заполненный EMPTY
+     */
     function createEmptyRow() {
         return new Array(COLS).fill(EMPTY);
     }
 
+    /**
+     * Создаёт пустое игровое поле.
+     */
     function createBoard() {
         G.board = Array.from({length: ROWS}, createEmptyRow);
     }
 
+    /**
+     * Возвращает случайный ключ из TETROMINOS.
+     * @returns {string} Ключ фигуры (I, O, T, S, Z, J, L)
+     */
     function getRandomType() {
         return TETROMINO_KEYS[Math.floor(Math.random() * TETROMINO_KEYS.length)];
     }
 
+    /**
+     * Создаёт объект фигуры с начальным положением.
+     * @param {string} type — ключ фигуры
+     * @returns {Object} { type, rotation, shape, row, col, color, shadow }
+     */
     function spawnPiece(type) {
         const tetromino = TETROMINOS[type];
         const shape = tetromino.shapes[0];
@@ -525,12 +570,14 @@
         };
     }
 
+    /** Обновляет DOM-элементы счёта, уровня и линий. */
     function updateDisplay() {
         scoreDisplay.textContent = G.score;
         levelDisplay.textContent = G.level;
         linesDisplay.textContent = G.linesCleared;
     }
 
+    /** Пересчитывает интервал падения по текущему уровню. */
     function calculateSpeed() {
         G.dropInterval = Math.max(80, 1000 - (G.level - 1) * 80);
     }
@@ -539,6 +586,14 @@
     // ПРОВЕРКА СТОЛКНОВЕНИЙ
     // ============================================================
 
+    /**
+     * Проверяет, может ли фигура быть размещена со смещением.
+     * @param {Object} piece — объект фигуры
+     * @param {number[][]} shape — матрица поворота
+     * @param {number} rowOffset — смещение по вертикали
+     * @param {number} colOffset — смещение по горизонтали
+     * @returns {boolean} true, если позиция свободна
+     */
     function isValidPosition(piece, shape, rowOffset, colOffset) {
         for (let r = 0; r < shape.length; r++) {
             for (let c = 0; c < shape[r].length; c++) {
@@ -548,6 +603,7 @@
                     if (newCol < 0 || newCol >= COLS || newRow >= ROWS) {
                         return false;
                     }
+                    // Ячейки выше поля игнорируем (разрешены при спавне)
                     if (newRow < 0) continue;
                     if (G.board[newRow][newCol] !== EMPTY) {
                         return false;
@@ -562,6 +618,7 @@
     // ДВИЖЕНИЕ ФИГУР
     // ============================================================
 
+    /** Сдвигает фигуру влево, если возможно. */
     function moveLeft() {
         if (!G.currentPiece || G.gamePaused || G.flashActive) return;
         if (isValidPosition(G.currentPiece, G.currentPiece.shape, 0, -1)) {
@@ -569,6 +626,7 @@
         }
     }
 
+    /** Сдвигает фигуру вправо, если возможно. */
     function moveRight() {
         if (!G.currentPiece || G.gamePaused || G.flashActive) return;
         if (isValidPosition(G.currentPiece, G.currentPiece.shape, 0, 1)) {
@@ -576,6 +634,7 @@
         }
     }
 
+    /** Ускоряет падение (soft drop). Даёт +1 очко за шаг. */
     function moveDown() {
         if (!G.currentPiece || G.gamePaused || G.flashActive) return;
         if (isValidPosition(G.currentPiece, G.currentPiece.shape, 1, 0)) {
@@ -585,6 +644,7 @@
         }
     }
 
+    /** Мгновенный сброс до дна (hard drop). Даёт +2 очка за ячейку. */
     function hardDrop() {
         if (!G.currentPiece || G.gamePaused || G.flashActive) return;
         let dropDistance = 0;
@@ -597,6 +657,10 @@
         lockPiece();
     }
 
+    /**
+     * Поворот фигуры по часовой стрелке c wall-kick.
+     * Пробует базовые смещения при столкновении со стенкой.
+     */
     function rotatePiece() {
         if (!G.currentPiece || G.gamePaused || G.flashActive) return;
 
@@ -631,9 +695,16 @@
     // ФИКСАЦИЯ ФИГУРЫ И ОЧИСТКА ЛИНИЙ
     // ============================================================
 
+    /**
+     * Фиксирует фигуру на поле.
+     * Сначала проверяет все ячейки на выход за верхнюю границу
+     * (game over), затем записывает блоки. Это исключает частичную
+     * фиксацию при game over.
+     */
     function lockPiece() {
         const piece = G.currentPiece;
 
+        // Проверка game over: выход за верхнюю границу
         for (let r = 0; r < piece.shape.length; r++) {
             for (let c = 0; c < piece.shape[r].length; c++) {
                 if (piece.shape[r][c] && piece.row + r < 0) {
@@ -643,6 +714,7 @@
             }
         }
 
+        // Запись блоков на доску
         for (let r = 0; r < piece.shape.length; r++) {
             for (let c = 0; c < piece.shape[r].length; c++) {
                 if (piece.shape[r][c]) {
@@ -656,6 +728,7 @@
         checkAndClearLines();
     }
 
+    /** Находит заполненные строки и запускает анимацию очистки. */
     function checkAndClearLines() {
         const filledRows = [];
         for (let r = ROWS - 1; r >= 0; r--) {
@@ -665,6 +738,7 @@
         }
 
         if (filledRows.length > 0) {
+            // Сортируем один раз при старте (по убыванию для splice)
             filledRows.sort((a, b) => b - a);
             G.flashRows = filledRows;
             G.flashTimer = 0;
@@ -674,6 +748,10 @@
         }
     }
 
+    /**
+     * Удаляет заполненные строки, начисляет очки, повышает уровень.
+     * Вызывается из updateFlashAnimation после завершения анимации.
+     */
     function clearFilledRows() {
         for (const rowIdx of G.flashRows) {
             G.board.splice(rowIdx, 1);
@@ -693,6 +771,11 @@
         updateDisplay();
     }
 
+    /**
+     * Анимация вспышки перед удалением строк.
+     * Использует реальную дельту времени (не зависит от FPS).
+     * @param {number} timestamp — время из requestAnimationFrame
+     */
     function updateFlashAnimation(timestamp) {
         if (!G.flashActive) return;
 
@@ -707,12 +790,14 @@
         }
     }
 
+    /** Переключает текущую фигуру на следующую из очереди. */
     function spawnNextPiece() {
         const type = G.nextPieceType;
         G.currentPiece = spawnPiece(type);
         G.nextPieceType = getRandomType();
         drawPreview();
 
+        // Если новая фигура сразу пересекается — game over
         if (!isValidPosition(G.currentPiece, G.currentPiece.shape, 0, 0)) {
             endGame();
         }
@@ -722,6 +807,16 @@
     // ОТРИСОВКА
     // ============================================================
 
+    /**
+     * Рисует один блок с эффектом объёма (блик + тень).
+     * @param {CanvasRenderingContext2D} context — контекст рисования
+     * @param {number} x — координата X в пикселях
+     * @param {number} y — координата Y в пикселях
+     * @param {string} color — основной цвет
+     * @param {string} shadow — цвет тени
+     * @param {number} size — размер блока
+     * @param {boolean} isGhost — true для призрачного контура
+     */
     function drawBlock(context, x, y, color, shadow, size, isGhost) {
         const padding = 1;
         const bx = x + padding;
@@ -741,15 +836,21 @@
         context.fillStyle = color;
         context.fillRect(bx, by, bw, bh);
 
+        // Блик (верх + лево)
         context.fillStyle = 'rgba(255, 255, 255, 0.25)';
         context.fillRect(bx, by, bw, EDGE_WIDTH);
         context.fillRect(bx, by, EDGE_WIDTH, bh);
 
+        // Тень (низ + право)
         context.fillStyle = shadow;
         context.fillRect(bx, by + bh - EDGE_WIDTH, bw, EDGE_WIDTH);
         context.fillRect(bx + bw - EDGE_WIDTH, by, EDGE_WIDTH, bh);
     }
 
+    /**
+     * Вычисляет Y-позицию призрачной фигуры (дно).
+     * @returns {number|null} Строка, на которой фигура коснётся дна
+     */
     function getGhostPosition() {
         if (!G.currentPiece) return null;
         let ghostRow = G.currentPiece.row;
@@ -759,11 +860,13 @@
         return ghostRow;
     }
 
+    /** Заливает фон канваса. */
     function drawBackground() {
         ctx.fillStyle = '#12121f';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
+    /** Рисует полупрозрачную сетку поля. */
     function drawGrid() {
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
         ctx.lineWidth = 0.5;
@@ -781,11 +884,13 @@
         }
     }
 
+    /** Рисует зафиксированные блоки и анимацию вспышки. */
     function drawBoard() {
         for (let r = 0; r < ROWS; r++) {
             for (let c = 0; c < COLS; c++) {
                 if (G.board[r][c] !== EMPTY) {
                     if (G.flashActive && G.flashRows.includes(r)) {
+                        // Мигание при удалении строки
                         const elapsed = G.flashTimer ? G.frameTimestamp - G.flashTimer : 0;
                         const flashPhase = Math.floor(elapsed / 50) % 2;
                         if (flashPhase === 0) {
@@ -804,6 +909,7 @@
         }
     }
 
+    /** Рисует призрачную фигуру (подсказку места падения). */
     function drawGhost() {
         if (!G.currentPiece || G.flashActive) return;
         const ghostRow = getGhostPosition();
@@ -819,6 +925,7 @@
         }
     }
 
+    /** Рисует активную падающую фигуру. */
     function drawActivePiece() {
         if (!G.currentPiece || G.flashActive) return;
         for (let r = 0; r < G.currentPiece.shape.length; r++) {
@@ -832,6 +939,7 @@
         }
     }
 
+    /** Композиция всех слоёв отрисовки. */
     function draw() {
         drawBackground();
         drawGrid();
@@ -840,6 +948,7 @@
         drawActivePiece();
     }
 
+    /** Рисует превью следующей фигуры в отдельном канвасе. */
     function drawPreview() {
         previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
         previewCtx.fillStyle = '#12121f';
@@ -876,6 +985,10 @@
     // ИГРОВОЙ ЦИКЛ
     // ============================================================
 
+    /**
+     * Главный игровой цикл. Вызывается через requestAnimationFrame.
+     * @param {number} timestamp — время из requestAnimationFrame
+     */
     function gameLoop(timestamp) {
         if (!G.gameRunning) return;
 
@@ -911,6 +1024,7 @@
     // УПРАВЛЕНИЕ ИГРОЙ
     // ============================================================
 
+    /** Запускает (или перезапускает) игру. */
     function startGame() {
         createBoard();
         G.score = 0;
@@ -938,6 +1052,7 @@
         G.animationFrameId = requestAnimationFrame(gameLoop);
     }
 
+    /** Завершает игру и показывает экран Game Over. */
     function endGame() {
         G.gameRunning = false;
         G.gameOverState = true;
@@ -953,6 +1068,7 @@
         overlay.classList.remove('hidden');
     }
 
+    /** Переключает паузу. */
     function togglePause() {
         if (!G.gameRunning || G.gameOverState) return;
         G.gamePaused = !G.gamePaused;
@@ -978,6 +1094,7 @@
         const key = event.key;
         const k = key.toLowerCase();
 
+        // R / К — быстрый рестарт в любом состоянии
         if (k === 'r' || k === 'к') {
             startGame();
             event.preventDefault();
@@ -986,6 +1103,7 @@
 
         if (!G.gameRunning || G.gameOverState) return;
 
+        // P / З — пауза
         if (k === 'p' || k === 'з') {
             togglePause();
             event.preventDefault();
@@ -1018,16 +1136,20 @@
         }
     });
 
+    // Старт (или возобновление при паузе)
     startBtn.addEventListener('click', function() {
         if (G.gamePaused) togglePause(); else startGame();
     });
 
+    // Пауза
     pauseBtn.addEventListener('click', togglePause);
 
+    // Кнопка в оверлее (старт / продолжить / рестарт)
     overlayBtn.addEventListener('click', function() {
         if (G.gamePaused && G.gameRunning && !G.gameOverState) togglePause(); else startGame();
     });
 
+    // Начальная отрисовка пустого состояния
     draw();
     drawPreview();
 </script>

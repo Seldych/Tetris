@@ -22,6 +22,8 @@ No specific lint/typecheck/build commands available.
 - Single HTML file (index.html) with embedded CSS and JS
 - Russian locale for UI
 - 4-space indentation
-- JSDoc comments for functions
+- JSDoc comments for all functions
+- Inline `/** */` comments for constants (single-line)
+- Section headers with `// ====` separator blocks
 - camelCase for variables and functions
 - UPPER_CASE for constants
