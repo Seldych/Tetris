@@ -56,7 +56,13 @@
             z-index: 1;
             display: flex;
             gap: 28px;
-            align-items: flex-start;
+            align-items: stretch;
+        }
+
+        .left-col {
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
         }
 
         .game-board {
@@ -249,8 +255,8 @@
             color: #c4b5fd;
             font-size: 13px;
             line-height: 1.7;
+            width: 100%;
             animation: promoPulse 2.5s ease-in-out infinite alternate;
-            max-width: 520px;
         }
 
         .promo-title {
@@ -299,13 +305,21 @@
 
 <div class="game-container">
     <div class="game-wrapper">
-        <div class="game-board">
-            <canvas id="tetris-canvas" width="300" height="600"></canvas>
-            <div class="game-overlay" id="overlay">
-                <div class="overlay-title" id="overlay-title">ТЕТРИС</div>
-                <div class="overlay-subtitle" id="overlay-subtitle">Нажмите кнопку для начала</div>
-                <div class="overlay-score hidden" id="overlay-score"></div>
-                <button class="btn btn-primary btn-overlay" id="overlay-btn">Начать игру</button>
+        <div class="left-col">
+            <div class="game-board">
+                <canvas id="tetris-canvas" width="300" height="600"></canvas>
+                <div class="game-overlay" id="overlay">
+                    <div class="overlay-title" id="overlay-title">ТЕТРИС</div>
+                    <div class="overlay-subtitle" id="overlay-subtitle">Нажмите кнопку для начала</div>
+                    <div class="overlay-score hidden" id="overlay-score"></div>
+                    <button class="btn btn-primary btn-overlay" id="overlay-btn">Начать игру</button>
+                </div>
+            </div>
+
+            <div class="promo">
+                <div class="promo-title">Made by Valery's team (tm).</div>
+                <div>We will complete any project for you.</div>
+                <div>Write to <a class="promo-email" href="mailto:t1tgorini@mozmail.com">t1tgorini@mozmail.com</a></div>
             </div>
         </div>
 
@@ -341,12 +355,6 @@
                 </div>
             </div>
         </div>
-    </div>
-
-    <div class="promo">
-        <div class="promo-title">Made by Valery's team (tm).</div>
-        <div>We will complete any project for you.</div>
-        <div>Write to <a class="promo-email" href="mailto:t1tgorini@mozmail.com">t1tgorini@mozmail.com</a></div>
     </div>
 </div>
 
